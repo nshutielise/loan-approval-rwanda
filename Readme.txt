@@ -11,7 +11,7 @@ This is a **prototype simulation**, demonstrating how credit decisions can be:
 - Fairer  
 - More transparent  
 
-It is not a production tool yet — but can serve as a **foundation to build robust loan decisioning systems** when co-designed with domain experts in Rwanda’s financial services.
+It is not a production tool yet â€” but can serve as a **foundation to build robust loan decisioning systems** when co-designed with domain experts in Rwandaâ€™s financial services.
 
 ---
 
@@ -24,7 +24,7 @@ Designed for use by:
 - Credit scoring & analytics teams
 
 ### Additional Use:
-Bank clients can use this simulation to **pre-evaluate their own eligibility** before applying — reducing in-branch time and unnecessary paperwork.
+Bank clients can use this simulation to **pre-evaluate their own eligibility** before applying â€” reducing in-branch time and unnecessary paperwork.
 
 ---
 
@@ -67,7 +67,7 @@ Combines machine learning prediction with **visual explanations** using SHAP:
 
 ```bash
 # Clone the repo
-git clone https://github.com/your-org/loan-approval-rwanda.git
+git clone https://github.com/nshutielise/loan-approval-rwanda
 cd loan-approval-rwanda
 
 # Set up environment
