@@ -4,6 +4,7 @@ import os
 import shap
 import matplotlib.pyplot as plt
 import cloudpickle
+from sklearn.pipeline import Pipeline
 
 # ---------------------
 # 🎯 Page Setup
@@ -47,16 +48,23 @@ input_df = pd.DataFrame([{
 st.markdown("----")
 
 # ---------------------
-# 🧠 Load the Trained Model
+# 🧠 Load and Validate Model
 # ---------------------
 model = None
 model_path = "logreg_model_compatible.pkl"
+valid_model = False
 
 if os.path.exists(model_path):
     try:
         with open(model_path, "rb") as f:
             model = cloudpickle.load(f)
-        st.success("✅ Model loaded successfully.")
+
+        # Validate model structure
+        if isinstance(model, Pipeline) and hasattr(model, "predict") and hasattr(model, "predict_proba"):
+            valid_model = True
+            st.success("✅ Model loaded and validated successfully.")
+        else:
+            st.error("❌ Model loaded but is not a valid scikit-learn Pipeline with predict capabilities.")
     except Exception as e:
         st.error(f"❌ Failed to load model: {e}")
 else:
@@ -66,7 +74,7 @@ else:
 # 📈 Make Prediction
 # ---------------------
 if st.button("🔍 Predict Loan Approval"):
-    if model is not None and hasattr(model, "predict"):
+    if valid_model:
         try:
             prediction = model.predict(input_df)[0]
             probability = model.predict_proba(input_df)[0][1]
@@ -123,4 +131,4 @@ if st.button("🔍 Predict Loan Approval"):
         except Exception as e:
             st.error(f"⚠️ Prediction failed: {e}")
     else:
-        st.error("⚠️ Model not loaded or invalid.")
+        st.error("⚠️ Model not loaded or invalid. Check structure and components.")
