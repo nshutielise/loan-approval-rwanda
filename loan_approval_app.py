@@ -1,9 +1,9 @@
 import streamlit as st
 import pandas as pd
-import joblib
 import os
 import shap
 import matplotlib.pyplot as plt
+import cloudpickle
 
 # ---------------------
 # 🎯 Page Setup
@@ -54,7 +54,8 @@ model_path = "logreg_model_compatible.pkl"
 
 if os.path.exists(model_path):
     try:
-        model = joblib.load(model_path)
+        with open(model_path, "rb") as f:
+            model = cloudpickle.load(f)
         st.success("✅ Model loaded successfully.")
     except Exception as e:
         st.error(f"❌ Failed to load model: {e}")
@@ -70,35 +71,26 @@ if st.button("🔍 Predict Loan Approval"):
             prediction = model.predict(input_df)[0]
             probability = model.predict_proba(input_df)[0][1]
 
-            # ---------------------
-            # ⚖️ Updated Rwandan Lending Rules
-            # ---------------------
+            # ⚖️ Lending Policy Rules
             monthly_income = annual_income / 12
-            annual_income_estimated = monthly_income * 12
-            max_loan_allowed = 0.4 * annual_income_estimated
-
+            max_loan_allowed = 0.4 * annual_income
             risk_flag = False
             reasons = []
 
             if monthly_income < 120000:
                 risk_flag = True
                 reasons.append("Monthly income is below RWF 120,000")
-
             if loan_amount > max_loan_allowed:
                 risk_flag = True
                 reasons.append("Loan exceeds 40% of annual income")
-
             if grade in ['F', 'G']:
                 risk_flag = True
                 reasons.append("Very low credit grade")
-
             if emp_length == "< 1 year":
                 risk_flag = True
                 reasons.append("Insufficient employment history")
 
-            # ---------------------
             # ✅ Final Decision
-            # ---------------------
             if risk_flag:
                 st.error(f"❌ Loan Rejected based on policy: {', '.join(reasons)}")
             elif probability >= 0.65:
@@ -114,16 +106,19 @@ if st.button("🔍 Predict Loan Approval"):
             # ---------------------
             try:
                 with st.spinner("Generating explanation..."):
-                    preprocessed = model.named_steps['preprocessor'].transform(input_df)
-                    explainer = shap.Explainer(model.named_steps['classifier'], feature_names=model.named_steps['preprocessor'].get_feature_names_out())
-                    shap_values = explainer(preprocessed)
+                    preprocessor = model.named_steps["preprocessor"]
+                    classifier = model.named_steps["classifier"]
+
+                    transformed = preprocessor.transform(input_df)
+                    explainer = shap.Explainer(classifier, feature_names=preprocessor.get_feature_names_out())
+                    shap_values = explainer(transformed)
 
                     st.markdown("#### 🔎 Feature Contribution (SHAP)")
                     fig, ax = plt.subplots(figsize=(10, 5))
                     shap.plots.waterfall(shap_values[0], max_display=10, show=False)
                     st.pyplot(fig)
             except Exception as e:
-                st.warning(f"⚠️ Could not generate SHAP plot: {e}")
+                st.warning(f"⚠️ Could not generate SHAP explanation: {e}")
 
         except Exception as e:
             st.error(f"⚠️ Prediction failed: {e}")
