@@ -1,10 +1,9 @@
 import streamlit as st
 import pandas as pd
+import joblib
 import os
 import shap
 import matplotlib.pyplot as plt
-import cloudpickle
-from sklearn.pipeline import Pipeline
 
 # ---------------------
 # 🎯 Page Setup
@@ -48,23 +47,15 @@ input_df = pd.DataFrame([{
 st.markdown("----")
 
 # ---------------------
-# 🧠 Load and Validate Model
+# 🧠 Load the Trained Model
 # ---------------------
 model = None
 model_path = "logreg_model_compatible.pkl"
-valid_model = False
 
 if os.path.exists(model_path):
     try:
-        with open(model_path, "rb") as f:
-            model = cloudpickle.load(f)
-
-        # Validate model structure
-        if isinstance(model, Pipeline) and hasattr(model, "predict") and hasattr(model, "predict_proba"):
-            valid_model = True
-            st.success("✅ Model loaded and validated successfully.")
-        else:
-            st.error("❌ Model loaded but is not a valid scikit-learn Pipeline with predict capabilities.")
+        model = joblib.load(model_path)
+        st.success("✅ Model loaded successfully.")
     except Exception as e:
         st.error(f"❌ Failed to load model: {e}")
 else:
@@ -74,31 +65,40 @@ else:
 # 📈 Make Prediction
 # ---------------------
 if st.button("🔍 Predict Loan Approval"):
-    if valid_model:
+    if model is not None and hasattr(model, "predict"):
         try:
             prediction = model.predict(input_df)[0]
             probability = model.predict_proba(input_df)[0][1]
 
-            # ⚖️ Lending Policy Rules
+            # ---------------------
+            # ⚖️ Updated Rwandan Lending Rules
+            # ---------------------
             monthly_income = annual_income / 12
-            max_loan_allowed = 0.4 * annual_income
+            annual_income_estimated = monthly_income * 12
+            max_loan_allowed = 0.4 * annual_income_estimated
+
             risk_flag = False
             reasons = []
 
             if monthly_income < 120000:
                 risk_flag = True
                 reasons.append("Monthly income is below RWF 120,000")
+
             if loan_amount > max_loan_allowed:
                 risk_flag = True
                 reasons.append("Loan exceeds 40% of annual income")
+
             if grade in ['F', 'G']:
                 risk_flag = True
                 reasons.append("Very low credit grade")
+
             if emp_length == "< 1 year":
                 risk_flag = True
                 reasons.append("Insufficient employment history")
 
+            # ---------------------
             # ✅ Final Decision
+            # ---------------------
             if risk_flag:
                 st.error(f"❌ Loan Rejected based on policy: {', '.join(reasons)}")
             elif probability >= 0.65:
@@ -114,21 +114,18 @@ if st.button("🔍 Predict Loan Approval"):
             # ---------------------
             try:
                 with st.spinner("Generating explanation..."):
-                    preprocessor = model.named_steps["preprocessor"]
-                    classifier = model.named_steps["classifier"]
-
-                    transformed = preprocessor.transform(input_df)
-                    explainer = shap.Explainer(classifier, feature_names=preprocessor.get_feature_names_out())
-                    shap_values = explainer(transformed)
+                    preprocessed = model.named_steps['preprocessor'].transform(input_df)
+                    explainer = shap.Explainer(model.named_steps['classifier'], feature_names=model.named_steps['preprocessor'].get_feature_names_out())
+                    shap_values = explainer(preprocessed)
 
                     st.markdown("#### 🔎 Feature Contribution (SHAP)")
                     fig, ax = plt.subplots(figsize=(10, 5))
                     shap.plots.waterfall(shap_values[0], max_display=10, show=False)
                     st.pyplot(fig)
             except Exception as e:
-                st.warning(f"⚠️ Could not generate SHAP explanation: {e}")
+                st.warning(f"⚠️ Could not generate SHAP plot: {e}")
 
         except Exception as e:
             st.error(f"⚠️ Prediction failed: {e}")
     else:
-        st.error("⚠️ Model not loaded or invalid. Check structure and components.")
+        st.error("⚠️ Model not loaded or invalid.")
